@@ -12,3 +12,17 @@ output/upscaled_fsrcnn.png
 output/upscaled_lapsrn.png
 output/upscaled.png
 output/video/test.jpeg
+output/videos/low_res_1_4_FSRSCNN_final.mp4
+output/videos/low_res_1_4x_cubic_final.mp4
+output/videos/low_res_1_BSRGAN_final.mp4
+output/videos/low_res_2_BSRGAN_final.mp4
+output/videos/low_res_2_LapSRN_x8_final.mp4
+output/videos/test.jpeg
+output/videos/low_res_2/low_res_2_BSRGAN_0.mp4
+output/videos/low_res_2/low_res_2_BSRGAN_1.mp4
+output/videos/low_res_2/low_res_2_BSRGAN_2.mp4
+output/videos/low_res_2/low_res_2_BSRGAN_3.mp4
+output/videos/low_res_2/low_res_2_BSRGAN_all.mp4
+output/videos/low_res_2/low_res_2_BSRGAN_final.mp4
+output/ldm_generated_image.png
+rough_work.ipynb
