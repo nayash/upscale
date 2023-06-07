@@ -39,6 +39,11 @@ torch.cuda.empty_cache()
 def get_model():
     model = net(in_nc=3, out_nc=3, nf=64, nb=23, gc=32, sf=modelScale)  # define network
     model.load_state_dict(torch.load(model_path), strict=True)
+    model.eval()
+    for k, v in model.named_parameters():
+        v.requires_grad = False
+    model = model.to(device)
+    torch.cuda.empty_cache()
     model = model.to('cuda')
     return model
 
@@ -153,6 +158,7 @@ if __name__ == '__main__':
     num_processes = threads
     split_video()
     model = get_model()
+    model.share_memory()
     # print(model)
 
     processes = []
