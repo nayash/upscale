@@ -11,6 +11,8 @@ import numpy as np
 import sys
 sys.path.append(os.path.abspath('./input/BSRGAN'))
 from models.network_rrdbnet import RRDBNet as net
+from pathlib import Path
+from moviepy.editor import AudioFileClip
 
 file_name = 'low_res_2' # 'Megan Is Missing'
 ext = 'mp4'
@@ -23,7 +25,7 @@ os.makedirs(output_root_path, exist_ok=True)
 input_video_parts_root = f'./input/videos/{file_name}_parts'
 os.makedirs(input_video_parts_root, exist_ok=True)
 
-threads = 2
+threads = 3
 runtime_env = {"working_dir": "./", "conda": "env_pytorch"}
 num_cpus = threads
 num_gpus = 1/threads
@@ -33,6 +35,7 @@ modelScale = 4
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model_path = f'./input/models/{model_name}.pth'
 time_limit = 1*60 # seconds
+codec = cv2.VideoWriter_fourcc(*'mp4v')
 
 torch.cuda.empty_cache()
 
@@ -52,7 +55,24 @@ def get_output_file_path(file_name, model_name, file_part, parent_path, ext):
     output_path = f'{parent_path}/{file_prefix}.{ext}'
     return output_path
 
+def concatenate_videos(new_video_path, codec, fps, resolution, videos):
+    video = cv2.VideoWriter(new_video_path, codec, fps, resolution)
+
+    for v in tqdm(videos):
+        curr_v = cv2.VideoCapture(v)
+        while curr_v.isOpened():
+            r, frame = curr_v.read()
+            if not r:
+                break
+            video.write(frame)
+
+    video.release()
+    print(f'video combined at {new_video_path}')
+
 def split_video():
+    global out_resolution
+    global frame_rate
+
     vcap = cv2.VideoCapture(input_video)
 
     total_frames = vcap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -68,6 +88,9 @@ def split_video():
 
     for part in range(threads):
         part_path = f'{input_video_parts_root}/{file_name}_part{part}.{ext}'
+        if os.path.exists(part_path):
+            print(f'file at {part_path} already exists. skipping')
+            break
         print(f'writing to {part_path}')
         vwriter = cv2.VideoWriter(part_path, codec,
                             frame_rate, out_resolution)
@@ -102,7 +125,6 @@ def uint2tensor4(img):
 
 def upscale(model, input_path, output_path):
     print(f'{input_path} --> {output_path}')
-    codec = cv2.VideoWriter_fourcc(*'mp4v')
     output_part_path = output_path  # get_output_file_path(file_name, model_name, f'part{part}', output_root_path, ext)
     
     input_part_path = input_path  # f'{input_video_parts_root}/{file_name}_part{part}.{ext}'
@@ -157,7 +179,7 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     num_processes = threads
     split_video()
-    model = get_model()
+    model = get_model() # if multi-gpu then move this to inside for loop and move model to the respective gpus
     model.share_memory()
     # print(model)
 
@@ -170,3 +192,17 @@ if __name__ == '__main__':
         processes.append(p)
     for p in processes:
         p.join()
+
+    files_sorted = list(map(str, sorted(Path(output_root_path).iterdir(), key=os.path.basename)))
+    concat_path = get_output_file_path(file_name, model_name, 'all', output_root_path, ext)
+    concatenate_videos(concat_path, codec, frame_rate, out_resolution, files_sorted)
+
+    video = moviepy.editor.VideoFileClip(input_video)
+    audio = video.audio
+    abs_path = os.path.abspath(concat_path)
+    print('test: abs_path', abs_path)
+    video_out = moviepy.editor.VideoFileClip(abs_path)
+    audio = audio.volumex(2)
+    video_with_audio = video_out.set_audio(audio)
+    output_video_audio = get_output_file_path(file_name, model_name, 'final', output_root_path, ext)
+    video_with_audio.write_videofile(output_video_audio)
